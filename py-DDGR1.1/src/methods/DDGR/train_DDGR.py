@@ -67,10 +67,12 @@ def train_model(args, model, criterion, optimizer, lr, dset_loaders, dset_sizes,
             for _,data in ziploaders:
 
                 if gen_dset_loaders is not None:
-                    inputs, labels = data[0]
-                    gen_inputs, gen_labels = data[1]
-                    inputs = torch.cat((inputs,gen_inputs))
-                    labels = torch.cat((labels,gen_labels))
+
+                    ## only use generated images
+                    inputs, labels = data[1]
+                    # gen_inputs, gen_labels = data[1]
+                    # inputs = torch.cat((inputs,gen_inputs))
+                    # labels = torch.cat((labels,gen_labels))
                 else:
                     inputs, labels = data
                 if 'mnist' in args.ds_name:

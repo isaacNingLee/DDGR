@@ -216,6 +216,8 @@ def fine_tune_train_DDGR(dataset_path, args,previous_task_model_path, exp_dir, t
         label_order_list = []
 
     ddsets = None
+
+    ### for classifier ####
     if (generator_img_path_label_list is not None) and (generator_classes is not None) and (generator_class_to_idx is not None):
         dset_loaders = {x: torch.utils.data.DataLoader(dsets[x], batch_size=batch_size,
                                                        shuffle=True, pin_memory=True)
@@ -239,7 +241,8 @@ def fine_tune_train_DDGR(dataset_path, args,previous_task_model_path, exp_dir, t
         gen_dset_loaders = None
         gen_dset_sizes = None
 
-    pl_list = ddsets['train'].get_allfigs_filepath()
+
+    pl_list = dsets['train'].get_allfigs_filepath() ## diffusion only use replay
     dset_path_list = [item[0] for item in pl_list]
     labels_list = [item[1] for item in pl_list]
 
@@ -247,15 +250,21 @@ def fine_tune_train_DDGR(dataset_path, args,previous_task_model_path, exp_dir, t
     temp_ll.extend(label_order_list)
     combine_label_list = list(sorted(set(temp_ll)))
 
-    if (gen_dset is not None) and (gen_dset_loaders is not None) and (gen_dset_sizes is not None):
-        gen_pl_list = gen_dset['train'].get_allfigs_filepath()
-        gen_dset_path_list = [item[0] for item in gen_pl_list]
-        gen_labels_list = [item[1] for item in gen_pl_list]
-        dset_path_list.extend(gen_dset_path_list)
-        labels_list.extend(gen_labels_list)
+    ## prepare for dffusion ##  ## add generative replay to the diffusion model training ##
+    # if (gen_dset is not None) and (gen_dset_loaders is not None) and (gen_dset_sizes is not None):
+    #     gen_pl_list = gen_dset['train'].get_allfigs_filepath()
+    #     gen_dset_path_list = [item[0] for item in gen_pl_list]
+    #     gen_labels_list = [item[1] for item in gen_pl_list]
+    #     dset_path_list.extend(gen_dset_path_list)
+    #     labels_list.extend(gen_labels_list)
+    # gen_dset_loader = combine_data_loader(generator_img_path_label_list,
+    #                                     generator_classes,
+    #                                     generator_class_to_idx,
+    #                                     dsets)
+
 
     resume = os.path.join(exp_dir, 'epoch.pth.tar')
-
+    ## for classifier ##
     model_ft, best_acc = DDGR_train.train_model(args=args,model=model_ft, criterion=criterion,
                                                 optimizer=optimizer_ft,lr = lr,
                                                 dset_loaders = dset_loaders, dset_sizes = dset_sizes,
@@ -269,13 +278,17 @@ def fine_tune_train_DDGR(dataset_path, args,previous_task_model_path, exp_dir, t
     start_preprocess_time = time.time()
 
     schedule_sampler = create_named_schedule_sampler(args.schedule_sampler, diffusion)
+    
 
+    ## prepare for diffusion ##
     generator_data = load_data(data_dir=dset_path_list,
-                               batch_size=args.diffusion_batch_size,
-                               image_size=args.image_size,
-                               classes_list=labels_list,
-                               class_cond=args.class_cond,)
+                            batch_size=args.diffusion_batch_size,
+                            image_size=args.image_size,
+                            classes_list=labels_list,
+                            class_cond=args.class_cond,)
     print("DDGR training starts")
+
+    ## training of diffusion ##
     TrainLoop(
         model=dmodel,
         diffusion=diffusion,
@@ -331,7 +344,6 @@ def combine_data_loader(generator_img_path_label_list,generator_classes,generato
         combine_dset[x] = ImageFolderTrainVal(root,None,transform=transform,classes=classes,class_to_idx=class_to_idx,
                                               imgs=imgs)
     return combine_dset
-
 
 def save_runningtime(time_elapsed,filename='runningtime.txt'):
     File = open(filename,'w')
